@@ -1,0 +1,163 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents a user in the system (Garçom, Cliente, or Co-Master).",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["waiter", "customer", "admin"] },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "MenuItem": {
+      "title": "MenuItem",
+      "description": "An item in the restaurant menu.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "available": { "type": "boolean" }
+      },
+      "required": ["name", "price", "category"]
+    },
+    "Table": {
+      "title": "Table",
+      "description": "Represents a physical table and its current session.",
+      "type": "object",
+      "properties": {
+        "number": { "type": "number" },
+        "status": { "type": "string", "enum": ["available", "active", "bill_requested", "paid"] },
+        "currentOrderId": { "type": "string" },
+        "waiterId": { "type": "string" },
+        "customerId": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "occupants": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["number", "status"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A set of items ordered for a table.",
+      "type": "object",
+      "properties": {
+        "tableId": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "price": { "type": "number" },
+              "quantity": { "type": "number" }
+            }
+          }
+        },
+        "total": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "completed"] },
+        "waiterId": { "type": "string" },
+        "customerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["tableId", "items", "total", "status", "createdAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "Real-time alerts for staff members.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["bill_request", "order_update"] },
+        "tableNumber": { "type": "number" },
+        "tableId": { "type": "string" },
+        "message": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "tableNumber", "message", "read", "createdAt"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Customer feedback and ratings for orders.",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string" },
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "rating": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["orderId", "customerId", "customerName", "rating", "createdAt"]
+    },
+    "Configuration": {
+      "title": "Configuration",
+      "description": "Restaurant configuration and system settings.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "restaurantName": { "type": "string" },
+        "restaurantAddress": { "type": "string" },
+        "serviceFeePercentage": { "type": "number" },
+        "contactPhone": { "type": "string" },
+        "wifiPassword": { "type": "string" },
+        "activeOpenHours": { "type": "string" },
+        "allowTableSelfCheckout": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["restaurantName", "serviceFeePercentage"]
+    }
+  },
+  "firestore": {
+    "/configurations/{configId}": {
+      "schema": "Configuration",
+      "description": "Interactive settings of the restaurant menu and interface."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles with roles."
+    },
+    "/menuItems/{itemId}": {
+      "schema": "MenuItem",
+      "description": "Restaurant menu database."
+    },
+    "/tables/{tableId}": {
+      "schema": "Table",
+      "description": "Real-time table status and sessions."
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Order history and active tickets."
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "Push-like notifications for waiters."
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Public feedback from customers."
+    },
+    "/waiter_invitations/{email}": {
+      "schema": {
+        "title": "WaiterInvitation",
+        "description": "Invitation for a waiter to join the platform.",
+        "type": "object",
+        "properties": {
+          "email": { "type": "string" },
+          "name": { "type": "string" },
+          "role": { "type": "string", "enum": ["waiter"] },
+          "invitedAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["email", "name", "role", "invitedAt"]
+      },
+      "description": "Pre-authorized registrations for staff members."
+    }
+  }
+}

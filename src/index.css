@@ -1,0 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Satisfy&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #2B1A10;
+  --color-primary-dark: #1A0F08;
+  --color-secondary: #4A2F1B;
+  --color-accent: #E6B15C;
+  --color-accent-light: #F2C97D;
+  --color-accent-dark: #C8923F;
+  --color-coffee: #6B4528;
+  
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-script: "Satisfy", cursive;
+}
+
+:root {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+.gold-border {
+  border-color: var(--color-accent);
+}
+
+.gold-text {
+  color: var(--color-accent);
+}
+
+.gold-bg {
+  background-color: var(--color-accent);
+}
+
+.gold-gradient {
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
+}
+
+.brown-gradient {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+}

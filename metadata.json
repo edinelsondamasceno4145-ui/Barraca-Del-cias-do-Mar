@@ -1,0 +1,6 @@
+{
+  "name": "Remix: Remix: Barraca Delícias do Mar",
+  "description": "Sistema de gestão completo para restaurante, com áreas para Garçom, Cliente e Administração.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

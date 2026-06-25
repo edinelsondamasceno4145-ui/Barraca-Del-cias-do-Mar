@@ -1,0 +1,66 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    
+    // safe fetching of user roles avoiding exceptions for guests or non-existent users
+    function getUserRole() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : 'customer';
+    }
+    
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'edinelsonept@gmail.com' ||
+        request.auth.token.email == 'edinelsondamasceno546@gmail.com' ||
+        request.auth.token.email == 'edinelsondamasceno07@gmail.com' ||
+        request.auth.token.email == 'edinelson.damasceno4145@aluno.seduc.pa.gov.br'
+      );
+    }
+    
+    function isAdmin() { return isSuperAdmin() || (isSignedIn() && getUserRole() == 'admin'); }
+    function isWaiter() { return isSuperAdmin() || (isSignedIn() && getUserRole() == 'waiter'); }
+    function isCustomer() { return isSuperAdmin() || (isSignedIn() && getUserRole() == 'customer'); }
+    
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // --- User Rules ---
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == userId && incoming().keys().hasAll(['uid', 'email', 'role', 'name']) && incoming().role in ['waiter', 'customer', 'admin'];
+      allow update: if isAdmin() || (isSignedIn() && request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'active']));
+    }
+
+    // --- Menu Rules ---
+    match /menuItems/{itemId} {
+      allow read: if true; // Publicly visible cardápio
+      allow write: if isAdmin();
+    }
+
+    // --- Table Rules ---
+    match /tables/{tableId} {
+      allow read: if isSignedIn();
+      allow create: if isWaiter() || isAdmin();
+      allow update: if isWaiter() || isAdmin() || (isCustomer() && existing().customerId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status']));
+      allow delete: if isAdmin();
+    }
+
+    // --- Order Rules ---
+    match /orders/{orderId} {
+      allow read: if isSignedIn();
+      allow create: if isWaiter() || isAdmin() || isCustomer();
+      allow update: if isWaiter() || isAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}
