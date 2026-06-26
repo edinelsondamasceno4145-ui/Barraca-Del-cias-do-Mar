@@ -115,6 +115,22 @@ export default function AdminPage() {
   // Firebase states
   const [isFirebaseSyncing, setIsFirebaseSyncing] = useState(false);
   const [firebaseSyncResult, setFirebaseSyncResult] = useState<{ success: boolean; count: number; errors: string[] } | null>(null);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+
+  useEffect(() => {
+    const updateQueueCount = () => {
+      try {
+        const queueStr = localStorage.getItem("firebase_sync_queue") || "[]";
+        const queue = JSON.parse(queueStr);
+        if (Array.isArray(queue)) {
+          setPendingSyncCount(queue.length);
+        }
+      } catch {}
+    };
+    updateQueueCount();
+    const interval = setInterval(updateQueueCount, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     // All Users
@@ -786,14 +802,21 @@ const app = initializeApp(firebaseConfig);`;
                       <h3 className="text-xl font-black text-white uppercase tracking-tight flex items-center gap-2">
                         <span>1. Firebase Firestore</span>
                       </h3>
-                      <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border mt-2 ${
-                        isDummy 
-                          ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" 
-                          : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${isDummy ? "bg-yellow-400 animate-bounce" : "bg-emerald-400 animate-pulse"}`} />
-                        {isDummy ? "Modo de Simulação Local (Mock)" : "Conectado ao Firestore Oficial"}
-                      </span>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border ${
+                          isDummy 
+                            ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" 
+                            : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${isDummy ? "bg-yellow-400 animate-bounce" : "bg-emerald-400 animate-pulse"}`} />
+                          {isDummy ? "Modo de Simulação Local (Mock)" : "Conectado ao Firestore Oficial"}
+                        </span>
+                        
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border bg-purple-500/10 text-purple-400 border-purple-500/20">
+                          <span className={`w-1.5 h-1.5 rounded-full bg-purple-400 ${pendingSyncCount > 0 ? "animate-ping" : "animate-pulse"}`} />
+                          Salvar Automático: {pendingSyncCount > 0 ? `Sincronizando ${pendingSyncCount}...` : "Ativo 🟢"}
+                        </span>
+                      </div>
                     </div>
 
                     <button
@@ -809,6 +832,24 @@ const app = initializeApp(firebaseConfig);`;
                   <p className="text-accent-light/80 text-sm leading-relaxed">
                     Armazene todo o banco local (produtos do cardápio, comandas registradas, comandas de consumo das mesas, avaliações, etc.) permanentemente no seu Firebase oficial. Além disso, cria de forma autônoma todas as configurações estruturadas da sua barraca de praia (Taxas de mesa, Wi-Fi, horários de atendimento, locais, etc.).
                   </p>
+
+                  {/* Real-time Background Sync Info Card */}
+                  <div className="bg-purple-500/5 border border-purple-500/20 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-purple-300">
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex h-2 w-2 shrink-0 relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+                      </span>
+                      <span>
+                        <strong>Sincronizador Automático em Tempo Real:</strong> Sempre que você adicionar novos produtos, registrar comandas, abrir/fechar mesas ou salvar registros ("alimentar o sistema"), as informações são salvas de forma autônoma e imediata no Firebase Firestore em segundo plano!
+                      </span>
+                    </div>
+                    {pendingSyncCount > 0 && (
+                      <span className="bg-purple-500/20 text-purple-200 px-3 py-1 rounded-full font-bold animate-pulse text-[10px] whitespace-nowrap">
+                        {pendingSyncCount} pendentes...
+                      </span>
+                    )}
+                  </div>
 
                   {/* Firebase Sync Summary Result */}
                   {firebaseSyncResult && (

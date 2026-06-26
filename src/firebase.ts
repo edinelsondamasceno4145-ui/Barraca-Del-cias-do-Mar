@@ -257,6 +257,121 @@ export const db: any = isDummy
     : realInitializeFirestore(app as any, { experimentalForceLongPolling: true })
   );
 
+// --- FIREBASE BACKGROUND AUTO-SYNC SYSTEM ---
+let realDbForSync: any = null;
+if (!isDummy) {
+  realDbForSync = db;
+} else if (firebaseConfig.projectId && !firebaseConfig.projectId.includes("YOUR_PROJECT_ID") && !firebaseConfig.projectId.includes("placeholder")) {
+  try {
+    const syncApp = realGetApps().length > 0 ? realGetApp() : realInitializeApp(firebaseConfig);
+    realDbForSync = realInitializeFirestore(syncApp, { experimentalForceLongPolling: true });
+    console.log("[Firebase Auto-Sync] Real background database initialized successfully.");
+  } catch (err) {
+    console.warn("[Firebase Auto-Sync] Failed to initialize real background database:", err);
+  }
+}
+
+let isProcessingQueue = false;
+
+/**
+ * Process any pending synchronization tasks from the local queue to the real Firebase Firestore.
+ */
+export async function processFirebaseSyncQueue(): Promise<void> {
+  if (isProcessingQueue) return;
+  
+  const targetDb = realDbForSync || (!isDummy ? db : null);
+  if (!targetDb) return;
+  
+  try {
+    const queueStr = localStorage.getItem("firebase_sync_queue");
+    if (!queueStr) return;
+    
+    const queue = JSON.parse(queueStr);
+    if (!Array.isArray(queue) || queue.length === 0) return;
+    
+    isProcessingQueue = true;
+    console.log(`[Firebase Auto-Sync] Processing ${queue.length} pending items in the synchronization queue...`);
+    
+    const remainingQueue = [...queue];
+    
+    while (remainingQueue.length > 0) {
+      const item = remainingQueue[0];
+      const { collectionName, id, data, isDeleted } = item;
+      
+      try {
+        const docRef = realDoc(targetDb, collectionName, id);
+        
+        if (isDeleted) {
+          await realDeleteDoc(docRef);
+          console.log(`[Firebase Auto-Sync] Deleted document from real Firebase Firestore: ${collectionName}/${id}`);
+        } else {
+          const cleanedItem = { ...data };
+          if (cleanedItem.password) {
+            delete cleanedItem.password;
+          }
+          await realSetDoc(docRef, cleanedItem);
+          console.log(`[Firebase Auto-Sync] Synchronized document to real Firebase Firestore: ${collectionName}/${id}`);
+        }
+        
+        remainingQueue.shift();
+        localStorage.setItem("firebase_sync_queue", JSON.stringify(remainingQueue));
+      } catch (err: any) {
+        console.warn(`[Firebase Auto-Sync] Temporary sync failure for ${collectionName}/${id}:`, err.message || err);
+        break; // Pause queue processing if we hit a network issue or error
+      }
+    }
+  } catch (err) {
+    console.error("[Firebase Auto-Sync] Error in queue processing:", err);
+  } finally {
+    isProcessingQueue = false;
+  }
+}
+
+/**
+ * Queues a record to be automatically synced to real Firebase Firestore.
+ */
+export function queueFirebaseSync(collectionName: string, id: string, data: any, isDeleted: boolean = false) {
+  try {
+    // Avoid sync of internal log collections or non-Firestore data
+    if (!collectionName || ["firestore_sync", "logs", "error_telemetry"].includes(collectionName)) return;
+
+    const queueStr = localStorage.getItem("firebase_sync_queue") || "[]";
+    const queue = JSON.parse(queueStr);
+    
+    const existingIndex = queue.findIndex((item: any) => item.collectionName === collectionName && item.id === id);
+    const queueItem = {
+      collectionName,
+      id,
+      data,
+      isDeleted,
+      timestamp: Date.now()
+    };
+    
+    if (existingIndex >= 0) {
+      queue[existingIndex] = queueItem;
+    } else {
+      queue.push(queueItem);
+    }
+    
+    localStorage.setItem("firebase_sync_queue", JSON.stringify(queue));
+    processFirebaseSyncQueue();
+  } catch (err) {
+    console.warn("[Firebase Auto-Sync] Failed to queue sync:", err);
+  }
+}
+
+// Start browser listeners if in a browser context
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => {
+    console.log("[Firebase Auto-Sync] Device came online. Flushing sync queue...");
+    processFirebaseSyncQueue();
+  });
+  
+  setInterval(() => {
+    processFirebaseSyncQueue();
+  }, 10000);
+}
+
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',
@@ -588,6 +703,9 @@ export async function setDoc(docRef: any, data: any): Promise<any> {
     }
     saveCollectionData(collectionName, items);
 
+    // Queue background sync to real Firebase Firestore
+    queueFirebaseSync(collectionName, id, newItem);
+
     // Background sync to Firebase Sync
     syncToFirebaseSync(collectionName, id, newItem).catch(err => 
       console.warn("[Firebase Sync] Background sync failed:", err)
@@ -614,6 +732,9 @@ export async function setDoc(docRef: any, data: any): Promise<any> {
         localStorage.setItem(`real_db_backup_${path}`, JSON.stringify(data));
       }
 
+      // Queue background sync to real Firebase Firestore on offline fallback
+      queueFirebaseSync(collectionName, id, data);
+
       // Try background sync anyway
       syncToFirebaseSync(collectionName, id, data).catch(err => 
         console.warn("[Firebase Sync] Background sync failed:", err)
@@ -637,6 +758,9 @@ export async function addDoc(collectionRef: any, data: any): Promise<any> {
     
     items.push(newItem);
     saveCollectionData(collectionName, items);
+
+    // Queue background sync to real Firebase Firestore
+    queueFirebaseSync(collectionName, id, newItem);
 
     // Background sync to Firebase Sync
     syncToFirebaseSync(collectionName, id, newItem).catch(err => 
@@ -666,6 +790,9 @@ export async function addDoc(collectionRef: any, data: any): Promise<any> {
         const fullData = { id: dummyId, ...data };
         localStorage.setItem(`real_db_backup_${path}`, JSON.stringify(fullData));
 
+        // Queue background sync to real Firebase Firestore on offline fallback
+        queueFirebaseSync(collectionName, dummyId, fullData);
+
         // Background sync to Firebase Sync
         syncToFirebaseSync(collectionName, dummyId, fullData).catch(err => 
           console.warn("[Firebase Sync] Background sync failed:", err)
@@ -690,6 +817,9 @@ export async function updateDoc(docRef: any, data: any): Promise<any> {
       const updatedItem = { ...items[existingIndex], ...data };
       items[existingIndex] = updatedItem;
       saveCollectionData(collectionName, items);
+
+      // Queue background sync to real Firebase Firestore
+      queueFirebaseSync(collectionName, id, updatedItem);
 
       // Background sync to Firebase Sync
       syncToFirebaseSync(collectionName, id, updatedItem).catch(err => 
@@ -728,6 +858,9 @@ export async function updateDoc(docRef: any, data: any): Promise<any> {
         localStorage.setItem(`real_db_backup_${path}`, JSON.stringify(updated));
       }
 
+      // Queue background sync to real Firebase Firestore on offline fallback
+      queueFirebaseSync(collectionName, id, updated);
+
       // Background sync to Firebase Sync
       syncToFirebaseSync(collectionName, id, updated).catch(err => 
         console.warn("[Firebase Sync] Background sync failed:", err)
@@ -750,6 +883,9 @@ export async function deleteDoc(docRef: any): Promise<any> {
     items = items.filter(i => i.id !== id);
     saveCollectionData(collectionName, items);
 
+    // Queue background sync deletion to real Firebase Firestore
+    queueFirebaseSync(collectionName, id, null, true);
+
     // Background sync deletion to Firebase Sync
     syncToFirebaseSync(collectionName, id, null, true).catch(err => 
       console.warn("[Firebase Sync] Background sync failed:", err)
@@ -768,6 +904,9 @@ export async function deleteDoc(docRef: any): Promise<any> {
       return res;
     } catch (err: any) {
       const path = docRef.path || docRef.id || "unknown";
+
+      // Queue background sync deletion on offline failure
+      queueFirebaseSync(collectionName, id, null, true);
 
       // Try background sync anyway
       syncToFirebaseSync(collectionName, id, null, true).catch(err => 
