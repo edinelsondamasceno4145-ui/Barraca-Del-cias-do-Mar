@@ -439,6 +439,18 @@ export default function LoginPage() {
                   <p>E-mail: <span className="text-white font-bold select-all">edinelsonept@gmail.com</span></p>
                   <p>Senha: <span className="text-white font-bold select-all">@Coelho60</span></p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail("edinelsonept@gmail.com");
+                    setPassword("@Coelho60");
+                    setIsLogin(true);
+                    toast.success("Credenciais Preenchidas!", "Clique no botão 'Entrar' para acessar.");
+                  }}
+                  className="w-full mt-2 bg-accent/25 hover:bg-accent/40 text-white font-bold py-1.5 px-3 rounded-lg text-[11px] transition-all border border-accent/40 uppercase tracking-wider text-center active:scale-95"
+                >
+                  ⚡ Preencher Login Automático
+                </button>
                 <p className="text-[10px] text-accent-light/80 italic mt-2">
                   {masterStatus === "checking" && "🔄 Verificando / Inicializando no banco de dados..."}
                   {(masterStatus === "created" || masterStatus === "created_mock") && "✅ Conta de Co-Master criada e pronta no banco de dados!"}
