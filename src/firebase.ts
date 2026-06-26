@@ -32,7 +32,7 @@ import {
 
 import firebaseConfig from "../firebase-applet-config.json";
 import { INITIAL_MENU } from "./constants";
-import { syncToSupabase } from "./supabaseSync";
+import { syncToFirebaseSync } from "./firebaseSync";
 
 // Detect if Firebase has empty/placeholder config (declined setup fallback)
 export const isDummy = !firebaseConfig.projectId || 
@@ -588,9 +588,9 @@ export async function setDoc(docRef: any, data: any): Promise<any> {
     }
     saveCollectionData(collectionName, items);
 
-    // Background sync to Supabase
-    syncToSupabase(collectionName, id, newItem).catch(err => 
-      console.warn("[Supabase Sync] Background sync failed:", err)
+    // Background sync to Firebase Sync
+    syncToFirebaseSync(collectionName, id, newItem).catch(err => 
+      console.warn("[Firebase Sync] Background sync failed:", err)
     );
 
     return;
@@ -604,9 +604,9 @@ export async function setDoc(docRef: any, data: any): Promise<any> {
         localStorage.setItem(`real_db_backup_${path}`, JSON.stringify(data));
       }
 
-      // Background sync to Supabase
-      syncToSupabase(collectionName, id, data).catch(err => 
-        console.warn("[Supabase Sync] Background sync failed:", err)
+      // Background sync to Firebase Sync
+      syncToFirebaseSync(collectionName, id, data).catch(err => 
+        console.warn("[Firebase Sync] Background sync failed:", err)
       );
     } catch (err: any) {
       console.warn("[Firebase Service] Web setDoc offline bypass, saving locally anyway:", err.message);
@@ -615,8 +615,8 @@ export async function setDoc(docRef: any, data: any): Promise<any> {
       }
 
       // Try background sync anyway
-      syncToSupabase(collectionName, id, data).catch(err => 
-        console.warn("[Supabase Sync] Background sync failed:", err)
+      syncToFirebaseSync(collectionName, id, data).catch(err => 
+        console.warn("[Firebase Sync] Background sync failed:", err)
       );
 
       // If we are offline, let's allow it to pass gracefully for front-end continuation
@@ -638,9 +638,9 @@ export async function addDoc(collectionRef: any, data: any): Promise<any> {
     items.push(newItem);
     saveCollectionData(collectionName, items);
 
-    // Background sync to Supabase
-    syncToSupabase(collectionName, id, newItem).catch(err => 
-      console.warn("[Supabase Sync] Background sync failed:", err)
+    // Background sync to Firebase Sync
+    syncToFirebaseSync(collectionName, id, newItem).catch(err => 
+      console.warn("[Firebase Sync] Background sync failed:", err)
     );
 
     return { id, collectionName, type: "doc" };
@@ -652,9 +652,9 @@ export async function addDoc(collectionRef: any, data: any): Promise<any> {
       const fullData = { id, ...data };
       localStorage.setItem(`real_db_backup_${path}`, JSON.stringify(fullData));
 
-      // Background sync to Supabase
-      syncToSupabase(collectionName, id, fullData).catch(err => 
-        console.warn("[Supabase Sync] Background sync failed:", err)
+      // Background sync to Firebase Sync
+      syncToFirebaseSync(collectionName, id, fullData).catch(err => 
+        console.warn("[Firebase Sync] Background sync failed:", err)
       );
 
       return docAddedRef;
@@ -666,9 +666,9 @@ export async function addDoc(collectionRef: any, data: any): Promise<any> {
         const fullData = { id: dummyId, ...data };
         localStorage.setItem(`real_db_backup_${path}`, JSON.stringify(fullData));
 
-        // Background sync to Supabase
-        syncToSupabase(collectionName, dummyId, fullData).catch(err => 
-          console.warn("[Supabase Sync] Background sync failed:", err)
+        // Background sync to Firebase Sync
+        syncToFirebaseSync(collectionName, dummyId, fullData).catch(err => 
+          console.warn("[Firebase Sync] Background sync failed:", err)
         );
 
         return { id: dummyId, path, type: "doc" };
@@ -691,9 +691,9 @@ export async function updateDoc(docRef: any, data: any): Promise<any> {
       items[existingIndex] = updatedItem;
       saveCollectionData(collectionName, items);
 
-      // Background sync to Supabase
-      syncToSupabase(collectionName, id, updatedItem).catch(err => 
-        console.warn("[Supabase Sync] Background sync failed:", err)
+      // Background sync to Firebase Sync
+      syncToFirebaseSync(collectionName, id, updatedItem).catch(err => 
+        console.warn("[Firebase Sync] Background sync failed:", err)
       );
     }
     return;
@@ -710,9 +710,9 @@ export async function updateDoc(docRef: any, data: any): Promise<any> {
         const updated = { ...existing, ...data };
         localStorage.setItem(`real_db_backup_${path}`, JSON.stringify(updated));
 
-        // Background sync to Supabase
-        syncToSupabase(collectionName, id, updated).catch(err => 
-          console.warn("[Supabase Sync] Background sync failed:", err)
+        // Background sync to Firebase Sync
+        syncToFirebaseSync(collectionName, id, updated).catch(err => 
+          console.warn("[Firebase Sync] Background sync failed:", err)
         );
       }
     } catch (err: any) {
@@ -728,9 +728,9 @@ export async function updateDoc(docRef: any, data: any): Promise<any> {
         localStorage.setItem(`real_db_backup_${path}`, JSON.stringify(updated));
       }
 
-      // Background sync to Supabase
-      syncToSupabase(collectionName, id, updated).catch(err => 
-        console.warn("[Supabase Sync] Background sync failed:", err)
+      // Background sync to Firebase Sync
+      syncToFirebaseSync(collectionName, id, updated).catch(err => 
+        console.warn("[Firebase Sync] Background sync failed:", err)
       );
 
       if (err.message?.includes("offline") || err.code === "unavailable") {
@@ -750,9 +750,9 @@ export async function deleteDoc(docRef: any): Promise<any> {
     items = items.filter(i => i.id !== id);
     saveCollectionData(collectionName, items);
 
-    // Background sync deletion to Supabase
-    syncToSupabase(collectionName, id, null, true).catch(err => 
-      console.warn("[Supabase Sync] Background sync failed:", err)
+    // Background sync deletion to Firebase Sync
+    syncToFirebaseSync(collectionName, id, null, true).catch(err => 
+      console.warn("[Firebase Sync] Background sync failed:", err)
     );
 
     return;
@@ -760,9 +760,9 @@ export async function deleteDoc(docRef: any): Promise<any> {
     try {
       const res = await realDeleteDoc(docRef);
 
-      // Background sync deletion to Supabase
-      syncToSupabase(collectionName, id, null, true).catch(err => 
-        console.warn("[Supabase Sync] Background sync failed:", err)
+      // Background sync deletion to Firebase Sync
+      syncToFirebaseSync(collectionName, id, null, true).catch(err => 
+        console.warn("[Firebase Sync] Background sync failed:", err)
       );
 
       return res;
@@ -770,8 +770,8 @@ export async function deleteDoc(docRef: any): Promise<any> {
       const path = docRef.path || docRef.id || "unknown";
 
       // Try background sync anyway
-      syncToSupabase(collectionName, id, null, true).catch(err => 
-        console.warn("[Supabase Sync] Background sync failed:", err)
+      syncToFirebaseSync(collectionName, id, null, true).catch(err => 
+        console.warn("[Firebase Sync] Background sync failed:", err)
       );
 
       handleFirestoreError(err, OperationType.DELETE, path);

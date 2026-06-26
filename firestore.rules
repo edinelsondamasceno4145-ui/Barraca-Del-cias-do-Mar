@@ -11,7 +11,7 @@ service cloud.firestore {
     function isSignedIn() { return request.auth != null; }
     function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
     
-    // safe fetching of user roles avoiding exceptions for guests or non-existent users
+    // Safe fetching of user roles avoiding exceptions for guests or non-existent users
     function getUserRole() {
       return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
         ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
@@ -21,8 +21,7 @@ service cloud.firestore {
     function isSuperAdmin() {
       return isSignedIn() && (
         request.auth.token.email == 'edinelsonept@gmail.com' ||
-        request.auth.token.email == 'edinelsondamasceno546@gmail.com' ||
-        request.auth.token.email == 'edinelsondamasceno07@gmail.com' ||
+        request.auth.token.email == 'edinelsondamasceno4145@aluno.seduc.pa.gov.br' ||
         request.auth.token.email == 'edinelson.damasceno4145@aluno.seduc.pa.gov.br'
       );
     }
@@ -34,21 +33,42 @@ service cloud.firestore {
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
 
+    // --- Validation Helpers ---
+    function isValidUser(data) {
+      return data.uid is string && data.uid.size() <= 128
+        && data.name is string && data.name.size() <= 256
+        && data.email is string && data.email.size() <= 256
+        && data.role is string && data.role in ['waiter', 'customer', 'admin']
+        && (data.active == true || data.active == false);
+    }
+
+    function isValidMenuItem(data) {
+      return data.name is string && data.name.size() <= 256
+        && data.price is number && data.price >= 0
+        && data.category is string && data.category.size() <= 128
+        && (data.available == true || data.available == false);
+    }
+
+    function isValidOrder(data) {
+      return data.tableId is string && data.tableId.size() <= 128
+        && data.items is list
+        && data.total is number && data.total >= 0
+        && data.status is string && data.status in ['pending', 'completed'];
+    }
+
     // --- User Rules ---
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && (request.auth.uid == userId || isAdmin()) && 
-                    incoming().keys().hasAll(['uid', 'email', 'role', 'name']) && 
-                    incoming().role in ['waiter', 'customer', 'admin'];
+      allow read: if isSignedIn() && (request.auth.uid == userId || isWaiter() || isAdmin());
+      allow create: if isSignedIn() && (request.auth.uid == userId || isAdmin()) && isValidUser(incoming());
       allow update: if isAdmin() || (isSignedIn() && request.auth.uid == userId && 
-                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'active', 'role']));
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'active', 'role']) && isValidUser(incoming()));
       allow delete: if isAdmin();
     }
 
     // --- Menu Rules ---
     match /menuItems/{itemId} {
       allow read: if true; 
-      allow write: if isAdmin();
+      allow write: if isAdmin() && isValidMenuItem(incoming());
     }
 
     // --- Table Rules ---
@@ -61,29 +81,37 @@ service cloud.firestore {
 
     // --- Order Rules ---
     match /orders/{orderId} {
-      allow read: if isSignedIn();
-      allow create: if isWaiter() || isAdmin() || isCustomer();
+      allow read: if isSignedIn() && (
+        resource.data.customerId == request.auth.uid || 
+        isWaiter() || 
+        isAdmin()
+      );
+      allow create: if isSignedIn() && (
+        (incoming().customerId == request.auth.uid && isValidOrder(incoming())) ||
+        isWaiter() || 
+        isAdmin()
+      );
       allow update: if isWaiter() || isAdmin();
       allow delete: if isAdmin() || isWaiter();
     }
 
     // --- Notification Rules ---
     match /notifications/{notificationId} {
-      allow read: if isSignedIn();
-      allow create: if isCustomer() || isWaiter() || isAdmin();
+      allow read: if isSignedIn() && (isWaiter() || isAdmin());
+      allow create: if isSignedIn(); // Any authenticated customer can submit requests/notifications
       allow update: if isWaiter() || isAdmin();
       allow delete: if isAdmin();
     }
 
     // --- Invitation Rules ---
     match /waiter_invitations/{email} {
-      allow read: if true; // Needed during registration check
+      allow read: if true; // Required during waiter team registration check
       allow write: if isAdmin();
     }
 
     // --- Review Rules ---
     match /reviews/{reviewId} {
-      allow read: if true; // Everyone can see reviews
+      allow read: if true; // Reviews are publicly readable
       allow create: if isSignedIn() && isCustomer() && 
                     incoming().customerId == request.auth.uid &&
                     incoming().rating >= 1 && incoming().rating <= 5 &&
@@ -93,8 +121,8 @@ service cloud.firestore {
 
     // --- Configuration Rules ---
     match /configurations/{configId} {
-      allow read: if true; // Anyone can retrieve configurations
-      allow write: if isAdmin(); // Only admins can update configurations
+      allow read: if true; // Configurations are public
+      allow write: if isAdmin();
     }
   }
 }

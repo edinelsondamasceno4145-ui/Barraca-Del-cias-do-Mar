@@ -57,7 +57,7 @@ import {
   AlertCircle,
   ExternalLink
 } from "lucide-react";
-import { isSupabaseConfigured, syncAllCollectionsToSupabase, SUPABASE_SQL_INSTRUCTIONS } from "../supabaseSync";
+import { isFirebaseSyncConfigured, syncAllCollectionsToFirebaseSync, FIREBASE_SYNC_SQL_INSTRUCTIONS } from "../firebaseSync";
 import { motion, AnimatePresence } from "motion/react";
 import { useToast } from "../components/Toast";
 import { 
@@ -107,7 +107,7 @@ export default function AdminPage() {
   const [userError, setUserError] = useState("");
   const [userSuccess, setUserSuccess] = useState("");
 
-  // Supabase states
+  // Firebase Sync states
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{ success: boolean; count: number; errors: string[] } | null>(null);
   const [copiedSQL, setCopiedSQL] = useState(false);
@@ -360,11 +360,11 @@ export default function AdminPage() {
     }
   };
 
-  const handleBulkSyncToSupabase = async () => {
+  const handleBulkSyncToFirebaseSync = async () => {
     setIsSyncing(true);
     setSyncResult(null);
     try {
-      const { successCount, errors } = await syncAllCollectionsToSupabase();
+      const { successCount, errors } = await syncAllCollectionsToFirebaseSync();
       setSyncResult({
         success: errors.length === 0,
         count: successCount,
@@ -462,8 +462,8 @@ const app = initializeApp(firebaseConfig);`;
               AVALIAÇÕES
             </button>
             <button 
-              onClick={() => setActiveTab("supabase")}
-              className={`px-4 sm:px-6 py-2 rounded-lg transition-all whitespace-nowrap ${activeTab === 'supabase' ? 'gold-gradient text-primary-dark' : 'text-accent-light'}`}
+              onClick={() => setActiveTab("firebase-sync")}
+              className={`px-4 sm:px-6 py-2 rounded-lg transition-all whitespace-nowrap ${activeTab === 'firebase-sync' ? 'gold-gradient text-primary-dark' : 'text-accent-light'}`}
             >
               BANCO FIREBASE
             </button>
@@ -764,7 +764,7 @@ const app = initializeApp(firebaseConfig);`;
           </div>
         )}
 
-        {activeTab === "supabase" && (
+        {activeTab === "firebase-sync" && (
           <div className="space-y-10">
             <div>
               <h2 className="text-3xl font-black gold-text uppercase flex items-center gap-3">
